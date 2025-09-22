@@ -2,33 +2,59 @@
 #include "defs.h"
 #include "riscv.h"
 void main();
-char stack0[4096*8];
+void timerinit();
+char stack0[4096];
 
-void start()
+void
+start()
 {
-    //jump to main
-    //M到S模式：设置mret返回值的模式位为s模式；设置mret的返回地址；关闭地址转换和保护；在s模式下，代理所有中断和异常；允许s模式访问所有物理内存；时钟中断初始化；执行mret指令
-    unsigned long x = r_mstatus();//读取mstatus寄存器的值,在riscv.h中定义
-    x &= ~MSTATUS_MPP_MASK;//清空之前模式
-    x |= MSTATUS_MPP_S;//设置为s模式
-    w_mstatus(x);//写入mstatus寄存器
-    
-    w_satp(0);//关闭地址转换和保护
+  // set M Previous Privilege mode to Supervisor, for mret.
+  unsigned long x = r_mstatus();
+  x &= ~MSTATUS_MPP_MASK;
+  x |= MSTATUS_MPP_S;
+  w_mstatus(x);
 
-    w_mepc((uint64)main);//设置mret的返回地址为main函数的地址
+  // set M Exception Program Counter to main, for mret.
+  // requires gcc -mcmodel=medany
+  w_mepc((uint64)main);
 
-    w_medeleg(0xffff);//在s模式下，代理所有中断和异常
-    w_mideleg(0xffff);
+  // disable paging for now.
+  w_satp(0);
 
-    w_sie(r_sie() | SIE_SEIE | SIE_STIE);//开启s模式的时钟中断
+  // delegate all interrupts and exceptions to supervisor mode.
+  w_medeleg(0xffff);
+  w_mideleg(0xffff);
+  w_sie(r_sie() | SIE_SEIE | SIE_STIE);
 
-    w_pmpaddr0(0x3fffffffffffffull);//允许s模式访问所有物理内存
-    w_pmpcfg0(0xf);//配置pmpcfg0寄存器
+  // configure Physical Memory Protection to give supervisor mode
+  // access to all of physical memory.
+  w_pmpaddr0(0x3fffffffffffffull);
+  w_pmpcfg0(0xf);
 
-    //时钟中断初始化
-    
+  // ask for clock interrupts.
+  timerinit();
 
-    int id = r_mhartid();//读取当前CPU的id
-    w_tp(id);//将id写入tp寄存器
-    asm volatile("mret");
+  // keep each CPU's hartid in its tp register, for cpuid().
+  int id = r_mhartid();
+  w_tp(id);
+
+  // switch to supervisor mode and jump to main().
+  asm volatile("mret");
+}
+
+// ask each hart to generate timer interrupts.
+void
+timerinit()
+{
+  // enable supervisor-mode timer interrupts.
+  w_mie(r_mie() | MIE_STIE);
+  
+  // enable the sstc extension (i.e. stimecmp).
+  w_menvcfg(r_menvcfg() | (1L << 63)); 
+  
+  // allow supervisor to use stimecmp and time.
+  w_mcounteren(r_mcounteren() | 2);
+  
+  // ask for the very first timer interrupt.
+  w_stimecmp(r_time() + 1000000);
 }
