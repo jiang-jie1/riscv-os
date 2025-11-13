@@ -1,10 +1,16 @@
 .section .text
 .global _entry
 _entry:
+    li t0, 0x10000000      # UART基地址
+    li t1, 'S'             # 启动标记
+    sb t1, 0(t0)           # 输出'S'表示启动
     # 为单核系统直接设置栈指针
     la sp, stack0       # 加载栈基地址
     li a0, 1024*4       # 栈大小（4KB）
     add sp, sp, a0      # 设置栈顶指针（栈向低地址增长）
+
+    li t1, 'P'             # 栈设置完成标记
+    sb t1, 0(t0)           # 输出'P'表示栈设置完成
 
      # 清零.bss段（未初始化的全局变量区域）
     la a0, bss_start    # a0 = .bss段起始地址

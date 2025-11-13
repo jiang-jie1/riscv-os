@@ -11,7 +11,6 @@ CFLAGS=-Wall -Werror -O0 \
 kernel: 
 	riscv64-unknown-elf-gcc $(CFLAGS) \
 		kernel/entry.S \
-		kernel/start.c \
 		kernel/uart.c \
 		kernel/main.c \
 		-T kernel/kernel.ld \
@@ -20,7 +19,7 @@ kernel:
 QEMU=qemu-system-riscv64 -machine virt -bios none \
 	-kernel kernel.elf \
 	-m 128 \
-	-smp 1 \
+	-smp  \
 	-nographic
 
 qemu: kernel
