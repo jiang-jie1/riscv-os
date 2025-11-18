@@ -1,0 +1,49 @@
+#include "types.h"
+#include "defs.h"
+
+// 外部函数声明
+void uart_putc(char c);
+void uart_puts(char *s);
+// 向控制台输出一个字符
+void consputc(char c) {
+    uart_putc(c);
+}
+void consputs(char *s) {
+    uart_puts(s);
+}
+// 清除屏幕
+void clear_screen(void) {
+    char *p = "\033[2J\033[H";
+    uart_puts(p);
+}
+void printf_color(int color, const char *fmt, ...) {
+    char buf[256];
+    va_list ap;
+    va_start(ap, fmt);
+    vsprintf(buf, fmt, ap); // 用自己的 vsprintf
+    va_end(ap);
+
+    // 构造颜色序列
+    char color_seq[8];
+    color_seq[0] = '\033';
+    color_seq[1] = '[';
+    color_seq[2] = (color / 10) + '0';
+    color_seq[3] = (color % 10) + '0';
+    color_seq[4] = 'm';
+    color_seq[5] = '\0';
+
+    uart_puts(color_seq);
+    uart_puts(buf);
+    uart_puts("\033[0m");
+}
+//光标定位
+void goto_xy(int x, int y)
+{
+  // ANSI 序列，x/y 从 1 开始
+  printf("\033[%d;%dH", y, x);
+}
+void
+clear_line()
+{
+  uart_puts("\033[K");
+}
